@@ -9,4 +9,6 @@ edition = "2018"
 sciter-rs = "0.5.53"
 include_dir = "0.6"
 
+[target.x86_64-pc-windows-gnu.dependencies]
+winapi = {version = "0.3", features = ["wincon", "winuser"]}
 

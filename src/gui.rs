@@ -9,6 +9,8 @@ use std::fs;
 use std::env;
 
 pub fn main() {
+  hide_console_on_windows();
+
   load_sciter_lib();
   
   let www_dir = load_sciter_www();
@@ -39,12 +41,15 @@ fn load_sciter_lib_win() {
   let libsciter_tmp_dir = format!("{}\\hcomms_libsciter", libsciter_tmp_dir);
   let libsciter_tmp_dir = Path::new(&libsciter_tmp_dir);
   if !libsciter_tmp_dir.exists() {
-    fs::create_dir_all(&libsciter_tmp_dir);
+    if let Err(e) = fs::create_dir_all(&libsciter_tmp_dir) {
+      eprintln!("Error creating {:?}: {}", &libsciter_tmp_dir, e);
+      return;
+    }
   }
 
-  const libsciter_data: Dir = include_dir!("libsciter/bin.win/x64/");
+  const LIBSCITER_DATA: Dir = include_dir!("libsciter/bin.win/x64/");
   
-  for file_data in libsciter_data.files() {
+  for file_data in LIBSCITER_DATA.files() {
     let out_path = libsciter_tmp_dir.join(&file_data.path());
     if ! out_path.exists() {
       if let Err(e) = fs::write(&out_path, file_data.contents()) {
@@ -68,12 +73,15 @@ fn load_sciter_lib_mac() {
 fn load_sciter_lib_linux() {
   let libsciter_tmp_dir = Path::new("/tmp/hcomms_libsciter/");
   if !libsciter_tmp_dir.exists() {
-    fs::create_dir_all(&libsciter_tmp_dir);
+    if let Err(e) = fs::create_dir_all(&libsciter_tmp_dir) {
+      eprintln!("Error creating {:?}: {}", &libsciter_tmp_dir, e);
+      return;
+    }
   }
   
-  const libsciter_data: Dir = include_dir!("libsciter/bin.lnx/x64/");
+  const LIBSCITER_DATA: Dir = include_dir!("libsciter/bin.lnx/x64/");
   
-  for file_data in libsciter_data.files() {
+  for file_data in LIBSCITER_DATA.files() {
     let out_path = libsciter_tmp_dir.join(&file_data.path());
     if ! out_path.exists() {
       if let Err(e) = fs::write(&out_path, file_data.contents()) {
@@ -99,17 +107,21 @@ fn load_sciter_www() -> PathBuf {
   return load_sciter_www_linux();
 }
 
+#[cfg(target_os = "windows")]
 fn load_sciter_www_win() -> PathBuf {
   let www_tmp_dir = env::var("TEMP").unwrap_or(".".to_string()); // windows guarantees %TEMP% to exist, but if not we use CWD
   let www_tmp_dir = format!("{}\\hcomms_www", www_tmp_dir);
   let sciter_www_dir = PathBuf::from(&www_tmp_dir);
   if !sciter_www_dir.exists() {
-    fs::create_dir_all(&sciter_www_dir);
+    if let Err(e) = fs::create_dir_all(&sciter_www_dir) {
+      eprintln!("Error creating {:?}: {}", &sciter_www_dir, e);
+      return sciter_www_dir;
+    }
   }
   
-  const www_data: Dir = include_dir!("src/www/");
+  const WWW_DATA: Dir = include_dir!("src/www/");
   
-  for file_data in www_data.files() {
+  for file_data in WWW_DATA.files() {
     let out_path = sciter_www_dir.join(&file_data.path());
     let mut out_len = 0;
     if let Ok(meta) = fs::metadata(&out_path) {
@@ -124,18 +136,23 @@ fn load_sciter_www_win() -> PathBuf {
 
   sciter_www_dir
 }
+#[cfg(target_os = "macos")]
 fn load_sciter_www_mac() -> PathBuf {
   std::unimplemented!()
 }
+#[cfg(target_os = "linux")]
 fn load_sciter_www_linux() -> PathBuf {
   let sciter_www_dir = PathBuf::from("/tmp/hcomms_www/");
   if !sciter_www_dir.exists() {
-    fs::create_dir_all(&sciter_www_dir);
+    if let Err(e) = fs::create_dir_all(&sciter_www_dir) {
+      eprintln!("Error creating {:?}: {}", &sciter_www_dir, e);
+      return sciter_www_dir;
+    }
   }
   
-  const www_data: Dir = include_dir!("src/www/");
+  const WWW_DATA: Dir = include_dir!("src/www/");
   
-  for file_data in www_data.files() {
+  for file_data in WWW_DATA.files() {
     let out_path = sciter_www_dir.join(&file_data.path());
     let mut out_len = 0;
     if let Ok(meta) = fs::metadata(&out_path) {
@@ -151,6 +168,43 @@ fn load_sciter_www_linux() -> PathBuf {
   sciter_www_dir
 }
 
+
+// This fn does nothin on linux/unix machines
+// and it calls winapi system calls to hide the console
+// on windows.
+// Users may set the environment variable NO_CONSOLE_DETATCH=1
+// to prevent detatching from the console when the GUI is opened.
+fn hide_console_on_windows() {
+  #[cfg(target_os = "windows")]
+  {
+    if let Ok(val) = env::var("NO_CONSOLE_DETATCH") {
+      if val.contains("y") || val.contains("Y") || val.contains("1") {
+        return;
+      }
+    }
+    hide_console_on_windows_win();
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn hide_console_on_windows_win() {
+  //use std::ptr;
+  //use winapi::um::wincon::GetConsoleWindow;
+  //use winapi::um::winuser::{ShowWindow, SW_HIDE};
+
+  // Below always hides console, even when run from cmd.exe
+  // let window = unsafe {GetConsoleWindow()};
+  // // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+  // if window != ptr::null_mut() {
+  //     unsafe {
+  //         ShowWindow(window, SW_HIDE);
+  //     }
+  // }
+
+  // This detatches from the console
+  unsafe { winapi::um::wincon::FreeConsole() };
+
+}
 
 
 
