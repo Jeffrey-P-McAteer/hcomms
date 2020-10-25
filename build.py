@@ -12,6 +12,11 @@
 
 
 import os, sys, subprocess
+
+if sys.version_info[0] < 3:
+  raise Exception("Must be using Python 3")
+
+# python3 -m pip install --user requests
 import requests, zipfile, io
 import shutil
 
