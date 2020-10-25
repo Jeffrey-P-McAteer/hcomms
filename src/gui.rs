@@ -1,6 +1,12 @@
 
 use sciter;
-use include_dir::{include_dir, Dir};
+use include_dir::{
+  include_dir, Dir
+};
+// use notify_rust::{ // good idea, does not work on recent win10 builds
+//   Notification, Hint, Timeout
+// };
+
 
 use std::path::{
   Path, PathBuf
@@ -18,12 +24,31 @@ pub fn main() {
   www_index.push("index.html");
   let www_index_s = www_index.as_path().to_string_lossy();
 
-  println!("Creating a window...");
-
+  let handler = EHandler { };
   let mut frame = sciter::Window::new();
+  frame.event_handler(handler);
   frame.load_file(&www_index_s);
   frame.run_app();
 }
+
+
+struct EHandler;
+
+impl EHandler {
+  fn tell_rust(&self, a: String) -> String {
+    println!("a={}", &a);
+    "Hello TIS!".to_string()
+  }
+}
+
+impl sciter::EventHandler for EHandler {
+  sciter::dispatch_script_call! {
+    fn tell_rust(String);
+  }
+}
+
+
+
 
 // This fn ensures sciter is on the system path.
 // We try to use an OS-specific temp directory
