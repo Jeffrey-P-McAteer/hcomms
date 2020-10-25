@@ -18,6 +18,8 @@ pub fn main() {
   www_index.push("index.html");
   let www_index_s = www_index.as_path().to_string_lossy();
 
+  println!("Creating a window...");
+
   let mut frame = sciter::Window::new();
   frame.load_file(&www_index_s);
   frame.run_app();
@@ -201,8 +203,14 @@ fn hide_console_on_windows_win() {
   //     }
   // }
 
-  // This detatches from the console
-  unsafe { winapi::um::wincon::FreeConsole() };
+  // Check if we are run from the console or just launched with explorer.exe
+  let mut console_proc_list_buff: Vec<u32> = vec![0; 16];
+  let num_procs = unsafe { winapi::um::wincon::GetConsoleProcessList(console_proc_list_buff.as_mut_ptr(), 16) };
+  if num_procs == 1 {
+    // We were launched from explorer.exe, detatch the console
+    unsafe { winapi::um::wincon::FreeConsole() };
+  }
+  // Otherwise do nothing, we want console messages when run from the console.
 
 }
 
