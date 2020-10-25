@@ -1,0 +1,17 @@
+
+#titlebar {
+  position: relative;
+}
+
+#titlebar > div {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+}
+
+panels > * {
+  background: transparent;
+}
+section > * {
+  background: transparent;
+}

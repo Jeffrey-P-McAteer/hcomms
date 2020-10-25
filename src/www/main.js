@@ -8,5 +8,10 @@ function self.ready() {
     return true;
   });
 
+  // if (view.connectToInspector) {
+  //   // connect to debugger all the time
+  //   view.connectToInspector();
+  // }
+
 }
 

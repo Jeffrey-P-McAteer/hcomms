@@ -75,6 +75,9 @@ def main():
     # to target/release/hcomms[.exe]
     cmd('cargo', 'build', '--release')
 
+    if 'run' in sys.argv:
+      cmd('cargo', 'run', '--release', '--')
+
 
 if __name__ == '__main__':
   main()

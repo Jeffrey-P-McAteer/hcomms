@@ -113,13 +113,13 @@ tabs > panels > *:expanded
   }
   tabs > strip > label:current /*active tab*/
   {
-    background: #fff;
+    /*background: #fff;*/
     margin:-2dip -2dip 0dip -2dip;
   }
 
   tabs > panels > *:expanded 
   { 
-    background: #fff;
+    /*background: #fff;*/
     border:1dip solid #ABADB3;
     box-shadow: 2dip 2dip 2dip #BFBFBF;
   }

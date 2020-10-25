@@ -14,10 +14,24 @@ use std::path::{
 use std::fs;
 use std::env;
 
+const WWW_DATA: Dir = include_dir!("src/www/");
+
+macro_rules! print_err {
+  ($expression:expr) => {
+    if let Err(e) = $expression {
+      eprintln!("{}: {:?}", stringify!($expression), e);
+    }
+  }
+}
+
 pub fn main() {
   hide_console_on_windows();
 
   load_sciter_lib();
+
+  print_err!( sciter::set_options( sciter::RuntimeOptions::UxTheming(false) ) );
+  print_err!( sciter::set_options( sciter::RuntimeOptions::ConnectionTimeout(9000) ) );
+  print_err!( sciter::set_options( sciter::RuntimeOptions::DebugMode(true) ) );
   
   let www_dir = load_sciter_www();
   let mut www_index = www_dir.clone();
@@ -26,6 +40,7 @@ pub fn main() {
 
   let handler = EHandler { };
   let mut frame = sciter::Window::new();
+  print_err!( frame.set_options( sciter::window::Options::MainWindow(true) ) );
   frame.event_handler(handler);
   frame.load_file(&www_index_s);
   frame.run_app();
@@ -75,15 +90,7 @@ fn load_sciter_lib_win() {
   }
 
   const LIBSCITER_DATA: Dir = include_dir!("libsciter/bin.win/x64/");
-  
-  for file_data in LIBSCITER_DATA.files() {
-    let out_path = libsciter_tmp_dir.join(&file_data.path());
-    if ! out_path.exists() {
-      if let Err(e) = fs::write(&out_path, file_data.contents()) {
-        println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
-      }
-    }
-  }
+  extract_dir_to(&LIBSCITER_DATA, &libsciter_tmp_dir.to_path_buf());
 
   // Now update PATH to include libsciter_tmp_dir
   let original_path = env::var("PATH").unwrap_or("".to_string());
@@ -93,7 +100,23 @@ fn load_sciter_lib_win() {
 
 #[cfg(target_os = "macos")]
 fn load_sciter_lib_mac() {
-  std::unimplemented!()
+  let libsciter_tmp_dir = env::var("TMPDIR").unwrap_or(".".to_string());
+  let libsciter_tmp_dir = format!("{}/hcomms_libsciter", libsciter_tmp_dir);
+  let libsciter_tmp_dir = Path::new(&libsciter_tmp_dir);
+  if !libsciter_tmp_dir.exists() {
+    if let Err(e) = fs::create_dir_all(&libsciter_tmp_dir) {
+      eprintln!("Error creating {:?}: {}", &libsciter_tmp_dir, e);
+      return;
+    }
+  }
+
+  const LIBSCITER_DATA: Dir = include_dir!("libsciter/bin.osx/");
+  extract_dir_to(&LIBSCITER_DATA, &libsciter_tmp_dir.to_path_buf());
+
+  // Now update PATH to include libsciter_tmp_dir
+  let original_path = env::var("PATH").unwrap_or("".to_string());
+  let new_path = format!("{}:{}", original_path, libsciter_tmp_dir.to_string_lossy());
+  env::set_var("PATH", new_path);
 }
 
 #[cfg(target_os = "linux")]
@@ -107,15 +130,7 @@ fn load_sciter_lib_linux() {
   }
   
   const LIBSCITER_DATA: Dir = include_dir!("libsciter/bin.lnx/x64/");
-  
-  for file_data in LIBSCITER_DATA.files() {
-    let out_path = libsciter_tmp_dir.join(&file_data.path());
-    if ! out_path.exists() {
-      if let Err(e) = fs::write(&out_path, file_data.contents()) {
-        println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
-      }
-    }
-  }
+  extract_dir_to(&LIBSCITER_DATA, &libsciter_tmp_dir.to_path_buf());
 
   // Now update PATH to include libsciter_tmp_dir
   let original_path = env::var("PATH").unwrap_or("".to_string());
@@ -134,6 +149,30 @@ fn load_sciter_www() -> PathBuf {
   return load_sciter_www_linux();
 }
 
+fn extract_dir_to(data: &Dir, target: &PathBuf) {
+  for file_data in data.files() {
+    let out_path = target.join(&file_data.path());
+    let mut out_len = 0;
+    if let Ok(meta) = fs::metadata(&out_path) {
+      out_len = meta.len();
+    }
+    if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
+      if let Err(e) = fs::write(&out_path, file_data.contents()) {
+        println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
+      }
+    }
+  }
+
+  for dir_data in data.dirs() {
+    let out_dir = target.join(&dir_data.path());
+    if let Err(e) = fs::create_dir_all(&out_dir) {
+      eprintln!("Error creating {:?}: {}", &out_dir, e);
+    }
+    extract_dir_to(dir_data, target);
+  }
+
+}
+
 #[cfg(target_os = "windows")]
 fn load_sciter_www_win() -> PathBuf {
   let www_tmp_dir = env::var("TEMP").unwrap_or(".".to_string()); // windows guarantees %TEMP% to exist, but if not we use CWD
@@ -146,47 +185,27 @@ fn load_sciter_www_win() -> PathBuf {
     }
   }
   
-  const WWW_DATA: Dir = include_dir!("src/www/");
-  
-  for file_data in WWW_DATA.files() {
-    let out_path = sciter_www_dir.join(&file_data.path());
-    let mut out_len = 0;
-    if let Ok(meta) = fs::metadata(&out_path) {
-      out_len = meta.len();
-    }
-    if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
-      if let Err(e) = fs::write(&out_path, file_data.contents()) {
-        println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
-      }
-    }
-  }
-
-  // Extract 1 level of files deep... TODO make recursive?
-  for dir_data in WWW_DATA.dirs() {
-    let out_dir = sciter_www_dir.join(&dir_data.path());
-    if let Err(e) = fs::create_dir_all(&out_dir) {
-      eprintln!("Error creating {:?}: {}", &out_dir, e);
-    }
-    for file_data in dir_data.files() {
-      let out_path = sciter_www_dir.join(&file_data.path());
-      let mut out_len = 0;
-      if let Ok(meta) = fs::metadata(&out_path) {
-        out_len = meta.len();
-      }
-      if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
-        if let Err(e) = fs::write(&out_path, file_data.contents()) {
-          println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
-        }
-      }
-    }
-  }
+  extract_dir_to(&WWW_DATA, &sciter_www_dir);
 
   sciter_www_dir
 }
 #[cfg(target_os = "macos")]
 fn load_sciter_www_mac() -> PathBuf {
-  std::unimplemented!()
+  let www_tmp_dir = env::var("TMPDIR").unwrap_or(".".to_string());
+  let www_tmp_dir = format!("{}/hcomms_www", www_tmp_dir);
+  let sciter_www_dir = PathBuf::from(&www_tmp_dir);
+  if !sciter_www_dir.exists() {
+    if let Err(e) = fs::create_dir_all(&sciter_www_dir) {
+      eprintln!("Error creating {:?}: {}", &sciter_www_dir, e);
+      return sciter_www_dir;
+    }
+  }
+  
+  extract_dir_to(&WWW_DATA, &sciter_www_dir);
+
+  sciter_www_dir
 }
+
 #[cfg(target_os = "linux")]
 fn load_sciter_www_linux() -> PathBuf {
   let sciter_www_dir = PathBuf::from("/tmp/hcomms_www/");
@@ -197,40 +216,7 @@ fn load_sciter_www_linux() -> PathBuf {
     }
   }
   
-  const WWW_DATA: Dir = include_dir!("src/www/");
-  
-  for file_data in WWW_DATA.files() {
-    let out_path = sciter_www_dir.join(&file_data.path());
-    let mut out_len = 0;
-    if let Ok(meta) = fs::metadata(&out_path) {
-      out_len = meta.len();
-    }
-    if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
-      if let Err(e) = fs::write(&out_path, file_data.contents()) {
-        println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
-      }
-    }
-  }
-
-  // Extract 1 level of files deep... TODO make recursive?
-  for dir_data in WWW_DATA.dirs() {
-    let out_dir = sciter_www_dir.join(&dir_data.path());
-    if let Err(e) = fs::create_dir_all(&out_dir) {
-      eprintln!("Error creating {:?}: {}", &out_dir, e);
-    }
-    for file_data in dir_data.files() {
-      let out_path = sciter_www_dir.join(&file_data.path());
-      let mut out_len = 0;
-      if let Ok(meta) = fs::metadata(&out_path) {
-        out_len = meta.len();
-      }
-      if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
-        if let Err(e) = fs::write(&out_path, file_data.contents()) {
-          println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
-        }
-      }
-    }
-  }
+  extract_dir_to(&WWW_DATA, &sciter_www_dir);
 
   sciter_www_dir
 }
