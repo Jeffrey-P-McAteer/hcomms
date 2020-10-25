@@ -1,0 +1,12 @@
+[package]
+name = "hcomms"
+version = "0.1.0"
+authors = ["Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+sciter-rs = "0.5.53"
+include_dir = "0.6"
+
+
