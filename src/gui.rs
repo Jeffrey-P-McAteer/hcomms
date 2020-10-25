@@ -161,6 +161,26 @@ fn load_sciter_www_win() -> PathBuf {
     }
   }
 
+  // Extract 1 level of files deep... TODO make recursive?
+  for dir_data in WWW_DATA.dirs() {
+    let out_dir = sciter_www_dir.join(&dir_data.path());
+    if let Err(e) = fs::create_dir_all(&out_dir) {
+      eprintln!("Error creating {:?}: {}", &out_dir, e);
+    }
+    for file_data in dir_data.files() {
+      let out_path = sciter_www_dir.join(&file_data.path());
+      let mut out_len = 0;
+      if let Ok(meta) = fs::metadata(&out_path) {
+        out_len = meta.len();
+      }
+      if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
+        if let Err(e) = fs::write(&out_path, file_data.contents()) {
+          println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
+        }
+      }
+    }
+  }
+
   sciter_www_dir
 }
 #[cfg(target_os = "macos")]
@@ -188,6 +208,26 @@ fn load_sciter_www_linux() -> PathBuf {
     if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
       if let Err(e) = fs::write(&out_path, file_data.contents()) {
         println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
+      }
+    }
+  }
+
+  // Extract 1 level of files deep... TODO make recursive?
+  for dir_data in WWW_DATA.dirs() {
+    let out_dir = sciter_www_dir.join(&dir_data.path());
+    if let Err(e) = fs::create_dir_all(&out_dir) {
+      eprintln!("Error creating {:?}: {}", &out_dir, e);
+    }
+    for file_data in dir_data.files() {
+      let out_path = sciter_www_dir.join(&file_data.path());
+      let mut out_len = 0;
+      if let Ok(meta) = fs::metadata(&out_path) {
+        out_len = meta.len();
+      }
+      if ! out_path.exists() || file_data.contents().len() as u64 != out_len {
+        if let Err(e) = fs::write(&out_path, file_data.contents()) {
+          println!("Error extracting {:?} to {:?}: {}", &file_data.path(), &out_path, e);
+        }
       }
     }
   }

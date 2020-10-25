@@ -2,13 +2,34 @@
   <head>
     <title>HComms</title>
     <script src="main.js" type="text/tiscript"></script>
+    <!-- thirdparty/tabs.tis is brought in by tabs.css and defines tab event handlers -->    
+    <style> @import url(thirdparty/tabs.css); </style>
+
   </head>
   <body>
-    <h1>HComms</h1>
-    <p>Hello GUI!</p>
-    <em>em text</em>
 
+    <tabs #test>
+      <strip>
+        <label for=config_tab >Config</label>
+        <label for=computer_tab selected>Computer</label>
+        <label for=lan_tab >LAN</label>
+      </strip>
+      <panels>
+        <section(config_tab)>
+          <include src="config.html" />
 
+        </section>
+        <section(computer_tab)>
+          <include src="computer.html" />
+
+        </section>
+        <section(lan_tab)>
+          
+          <include src="lan.html" />
+
+        </section>
+      </panels>
+    </tabs>
 
   </body>
 </html>
